@@ -6,10 +6,10 @@ export async function GET(req: NextRequest) {
     const resolved = resolvedParam === "true" ? true : resolvedParam === "false" ? false : undefined;
 
     try {
+        const whereClause = resolved !== undefined ? { resolved } : {};
+        
         const incidents = await prisma.incident.findMany({
-            where: {
-                resolved: resolved !== undefined ? { resolved } : {}
-            },
+            where: whereClause,
             orderBy: {
                 tsStart: "desc",
             },

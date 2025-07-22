@@ -1,103 +1,113 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useEffect } from 'react'
+import Navbar from './components/Navbar'
+import IncidentPlayer from './components/IncidentPlayer'
+import IncidentList from './components/IncidentList'
+
+export interface Camera {
+  id: number
+  name: string
+  location: string
+}
+
+export interface Incident {
+  id: number
+  cameraId: number
+  type: string
+  tsStart: string
+  tsEnd: string
+  thumbnailUrl: string
+  resolved: boolean
+  camera: Camera
+}
+
+export default function Dashboard() {
+  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
+  const [showResolved, setShowResolved] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchIncidents()
+  }, [showResolved])
+
+  const fetchIncidents = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/incidents?resolved=${showResolved}`)
+      const data = await response.json()
+      setIncidents(data.incidents)
+      
+      if (!selectedIncident && data.incidents.length > 0) {
+        setSelectedIncident(data.incidents[0])
+      }
+    } catch (error) {
+      console.error('Error fetching incidents:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResolveIncident = async (incidentId: number) => {
+    try {
+      const response = await fetch(`/api/incidents/${incidentId}/resolve`, {
+        method: 'PATCH',
+      })
+      
+      if (response.ok) {
+        setIncidents(prev => 
+          prev.map(incident => 
+            incident.id === incidentId 
+              ? { ...incident, resolved: !incident.resolved }
+              : incident
+          )
+        )
+  
+        if (!showResolved) {
+          setIncidents(prev => prev.filter(incident => incident.id !== incidentId))
+          
+          if (selectedIncident?.id === incidentId) {
+            const remainingIncidents = incidents.filter(i => i.id !== incidentId)
+            setSelectedIncident(remainingIncidents.length > 0 ? remainingIncidents[0] : null)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error resolving incident:', error)
+    }
+  }
+
+  const unresolvedCount = incidents.filter(i => !i.resolved).length
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <Navbar 
+        unresolvedCount={unresolvedCount}
+        showResolved={showResolved}
+        onToggleResolved={() => setShowResolved(!showResolved)}
+      />
+      
+      <div className="flex h-[calc(100vh-64px)]">
+        <div className="flex-1 p-6">
+          <IncidentPlayer 
+            incident={selectedIncident}
+            allIncidents={incidents}
+            onIncidentSelect={setSelectedIncident}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        
+        <div className="w-96 border-l border-gray-700">
+          <IncidentList
+            incidents={incidents}
+            selectedIncident={selectedIncident}
+            onIncidentSelect={setSelectedIncident}
+            onResolveIncident={handleResolveIncident}
+            showResolved={showResolved}
+            loading={loading}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
