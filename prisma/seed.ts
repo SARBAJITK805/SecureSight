@@ -45,7 +45,6 @@ async function main() {
   })
 
   const incidents = [
-  
     {
       type: 'UNAUTHORIZED_ACCESS',
       ...createTimeRange(2, 5),
