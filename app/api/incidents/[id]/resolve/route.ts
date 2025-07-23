@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function PATCH(req: NextRequest, { params }: {
     params: { id: string }
 }) {
-    const incidentId = Number(params.id);
+    const incidentId = Number((await params).id);
     if (isNaN(incidentId)) {
         return new NextResponse("Invalid ID", { status: 400 });
     }

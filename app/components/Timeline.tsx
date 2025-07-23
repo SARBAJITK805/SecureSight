@@ -19,6 +19,7 @@ const TYPE_STYLES = {
   UNAUTHORIZED_ACCESS: 'bg-orange-500 border-orange-400',
   FACE_RECOGNIZED: 'bg-blue-500 border-blue-400',
   TRAFFIC_CONGESTION: 'bg-cyan-600 border-cyan-400',
+  SUSPICIOUS_BEHAVIOR: 'bg-yellow-600 border-yellow-500',
   MULTIPLE:        'bg-gray-700 border-gray-500',
 }
 const TYPE_LABEL = {
@@ -26,6 +27,7 @@ const TYPE_LABEL = {
   UNAUTHORIZED_ACCESS: 'Unauthorised Access',
   FACE_RECOGNIZED: 'Face Recognised',
   TRAFFIC_CONGESTION: 'Traffic congestion',
+  SUSPICIOUS_BEHAVIOR: 'Suspicious Behavior',
   MULTIPLE: 'Multiple Events',
 }
 
@@ -51,35 +53,49 @@ export default function Timeline({
 
   const timeToX = useCallback((seconds: number) => {
     if (!timelineRef.current) return 0
-    const timelineWidth = timelineRef.current.offsetWidth
-    return (seconds / (TOTAL_HOURS * 3600)) * timelineWidth
+    const timelineWidth = timelineRef.current.offsetWidth - 100
+    return (seconds / (TOTAL_HOURS * 3600)) * timelineWidth + 100
   }, [])
 
+  const xToTime = useCallback((x: number) => {
+    if (!timelineRef.current) return 0
+    const timelineWidth = timelineRef.current.offsetWidth - 100
+    const adjustedX = Math.max(0, x - 100)
+    return Math.round((adjustedX / timelineWidth) * (TOTAL_HOURS * 3600))
+  }, [])
   
-  const onMarkerSeek = (event: { clientX: number }) => {
+  const onMarkerSeek = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!timelineRef.current) return
     const rect = timelineRef.current.getBoundingClientRect()
     const x = event.clientX - rect.left
-    const timelineWidth = timelineRef.current.offsetWidth
-    const newTime = Math.round((x / timelineWidth) * (TOTAL_HOURS * 3600))
-    setCurrentTime(newTime)
+    const newTime = xToTime(x)
+    setCurrentTime(Math.max(0, Math.min(newTime, TOTAL_HOURS * 3600)))
     onTimeChange(newTime)
   }
 
+  const onTimeTickClick = (hour: number) => {
+    const newTime = hour * 3600
+    setCurrentTime(newTime)
+    onTimeChange(newTime)
+  }
   
   const renderTimeTicks = () => {
     const ticks = []
     for (let hour = 0; hour <= TOTAL_HOURS; hour += 1) {
       ticks.push(
-        <div key={hour} className="flex-1 text-xs text-gray-400 text-center" style={{ minWidth: 40 }}>
+        <button
+          key={hour}
+          className="flex-1 text-xs text-gray-400 text-center hover:text-white cursor-pointer py-1"
+          style={{ minWidth: 40 }}
+          onClick={() => onTimeTickClick(hour)}
+        >
           {String(hour).padStart(2, '0')}:00
-        </div>
+        </button>
       )
     }
-    return <div className="flex w-full px-2">{ticks}</div>
+    return <div className="flex w-full pl-24">{ticks}</div>
   }
 
-  
   const renderCameraRows = () =>
     cameras.map((camera, idx) => (
       <div
@@ -87,32 +103,37 @@ export default function Timeline({
         className="relative flex items-center h-12 select-none"
         style={{ minHeight: `${TIMELINE_HEIGHT}px` }}
       >
-        <span className="w-24 text-xs text-gray-300 flex-shrink-0">{camera.name}</span>
+        <span className="w-24 text-xs text-gray-300 flex-shrink-0 pr-2">{camera.name}</span>
         <div className="flex-1 relative h-full">
-          {/* Event bars */}
+          
           {incidents
             .filter(ev => ev.cameraId === camera.id)
             .map(ev => {
               const startS = new Date(ev.tsStart).getUTCHours() * 3600 + new Date(ev.tsStart).getUTCMinutes() * 60 + new Date(ev.tsStart).getUTCSeconds()
               const endS = new Date(ev.tsEnd).getUTCHours() * 3600 + new Date(ev.tsEnd).getUTCMinutes() * 60 + new Date(ev.tsEnd).getUTCSeconds()
-              const left = timeToX(startS)
-              let width = timeToX(endS) - left
-              width = Math.max(width, 30)
+              const left = (startS / (TOTAL_HOURS * 3600)) * 100
+              let width = ((endS - startS) / (TOTAL_HOURS * 3600)) * 100
+              width = Math.max(width, 2)
               const style = `${TYPE_STYLES[ev.type as keyof typeof TYPE_STYLES] || 'bg-gray-600 border-gray-600'}`
               return (
                 <button
                   key={ev.id}
                   className={`absolute top-1 h-7 rounded text-xs px-2 flex items-center transition-all ${style} border-2 outline-none hover:opacity-90`}
                   style={{
-                    left,
-                    width,
+                    left: `${left}%`,
+                    width: `${width}%`,
                     zIndex: selectedIncident?.id === ev.id ? 4 : 2,
                     borderColor: selectedIncident?.id === ev.id ? '#fde047' : undefined,
                   }}
                   title={TYPE_LABEL[ev.type as keyof typeof TYPE_LABEL] || ev.type}
-                  onClick={e => { e.stopPropagation(); onIncidentSelect(ev); setCurrentTime(startS) }}
+                  onClick={e => { 
+                    e.stopPropagation(); 
+                    onIncidentSelect(ev); 
+                    setCurrentTime(startS);
+                    onTimeChange(startS);
+                  }}
                 >
-                  <span className="truncate">{TYPE_LABEL[ev.type as keyof typeof TYPE_LABEL] || ev.type}</span>
+                  <span className="truncate">{TYPE_LABEL[ev.type as keyof typeof TYPE_LABEL]?.split(' ')[0] || ev.type}</span>
                 </button>
               )
             })}
@@ -120,7 +141,6 @@ export default function Timeline({
       </div>
     ))
 
-  
   const markerPos = timeToX(currentTime)
 
   return (
@@ -137,21 +157,22 @@ export default function Timeline({
       </div>
       
       <div className="flex">
-        <div className="w-24"></div>
-        <div className="flex-1">{renderTimeTicks()}</div>
+        {renderTimeTicks()}
       </div>
       
       <div
         ref={timelineRef}
-        className="relative flex flex-col bg-black/25 rounded overflow-x-auto py-1 select-none"
+        className="relative flex flex-col bg-black/25 rounded overflow-x-auto py-1 select-none cursor-pointer"
         style={{ minHeight: TIMELINE_HEIGHT * cameras.length + 16, minWidth: 480 }}
         onClick={onMarkerSeek}
       >
         {renderCameraRows()}
-        
-        <div className="absolute top-0 bottom-0 z-30" style={{ left: markerPos, width: 0 }}>
+        <div 
+          className="absolute top-0 bottom-0 z-30 pointer-events-none" 
+          style={{ left: markerPos, width: 2 }}
+        >
           <div className="w-0.5 bg-yellow-400 h-full"></div>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-yellow-400 text-black font-mono text-xs rounded py-0.5 px-1 shadow-lg mt-[-30px]">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-yellow-400 text-black font-mono text-xs rounded py-0.5 px-1 shadow-lg -mt-7">
             {formatTime(currentTime, false)}
           </div>
         </div>
