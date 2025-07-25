@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(req: NextRequest, { params }: { params: { dimensions: string[] } }) {
-  const [width = '300', height = '200'] = params.dimensions
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ dimensions: string[] }> }
+) {
+  const { dimensions } = await context.params; // Await the params Promise
+  const [widthStr = "100", heightStr = "100"] = dimensions || [];
+  const width = parseInt(widthStr, 10);
+  const height = parseInt(heightStr, 10);
 
   const svg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
