@@ -1,4 +1,5 @@
 import { Check, AlertTriangle, Shield, Eye, Zap, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
 import { Incident } from '../page'
 
 interface Props {
@@ -16,102 +17,104 @@ export default function IncidentList({
   onResolveIncident,
   loading,
 }: Props) {
+  const [showResolved, setShowResolved] = useState(false);
   const unresolved = incidents.filter(i => !i.resolved);
   const resolved = incidents.filter(i => i.resolved);
+  const shown = showResolved ? resolved : unresolved;
 
   return (
     <div className="flex flex-col h-full bg-[#161B22] rounded-lg overflow-hidden min-h-0 min-w-0">
-      <div className="p-4 border-b border-gray-700 flex flex-col gap-2">
-        <div className="flex items-center text-lg font-semibold">
-          <AlertTriangle className="w-5 h-5 text-red-500 mr-2" />
-          <span className="text-white">{unresolved.length} Unresolved Incidents</span>
+      {/* Header and the "Show Resolved" button */}
+      <div className="flex items-center justify-between p-4 border-b border-[#22252B] bg-[#1A1F26]">
+        <div className="flex items-center gap-2 text-lg font-semibold text-white">
+          <AlertTriangle className="w-5 h-5 text-red-500" />
+          <span>
+            {showResolved ? `${resolved.length} Resolved` : `${unresolved.length} Unresolved`}
+          </span>
         </div>
-        <div className="flex items-center text-sm text-gray-400">
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-orange-500 rounded mr-2"></div>
-            <span>+</span>
-          </div>
-          <div className="flex items-center ml-3">
-            <div className="w-3 h-3 bg-blue-500 rounded mr-2"></div>
-          </div>
-          <div className="flex items-center ml-3">
-            <Check className="w-4 h-4 text-green-500 mr-1" />
-            <span>{resolved.length} resolved incidents</span>
-          </div>
+        <div className="flex items-center gap-2 text-xs font-medium">
+          <Check className="w-4 h-4 text-green-400" />
+          {resolved.length} resolved
+          <button
+            className={`
+              ml-3 px-3 py-1.5 rounded-lg font-bold border
+              transition text-xs 
+              ${showResolved 
+                ? "bg-green-500 text-black border-green-500 hover:bg-green-600"
+                : "bg-gray-800 text-gray-200 border-green-500 hover:bg-green-600 hover:text-black"
+              }
+            `}
+            onClick={() => setShowResolved(r => !r)}
+          >
+            {showResolved ? "Show Unresolved" : "Show Resolved"}
+          </button>
         </div>
       </div>
-      
-      <div className="overflow-y-auto flex-1 p-3 min-h-0">
+      {/* List */}
+      <div className="flex-1 overflow-y-auto p-3 min-h-0 space-y-3 bg-[#161B22]">
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading...</div>
-        ) : unresolved.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">No unresolved incidents.</div>
-        ) : (
-          <div className="space-y-3">
-            {unresolved.map(incident => (
-              <div
-                key={incident.id}
-                className={`flex gap-3 p-3 rounded-lg cursor-pointer border-2 transition-all ${
-                  selectedIncident?.id === incident.id
-                    ? 'bg-gray-700/50 border-purple-500'
-                    : 'hover:bg-gray-800/50 border-transparent hover:border-gray-600'
-                }`}
-                onClick={() => onIncidentSelect(incident)}
-              >
-                <div className="relative">
-                  <img
-                    src={incident.thumbnailUrl}
-                    alt={incident.type}
-                    className="w-16 h-12 object-cover rounded bg-gray-700 flex-shrink-0"
-                  />
-                  {selectedIncident?.id === incident.id && (
-                    <div className="absolute inset-0 border-2 border-purple-500 rounded"></div>
-                  )}
-                </div>
-                
-                <div className="flex flex-col flex-1 min-w-0 justify-between">
-                  <div className="flex items-start justify-between">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-sm mb-1">
-                        {incident.type === 'GUN_THREAT' && (
-                          <span className="text-red-400">🔫 Gun Threat</span>
-                        )}
-                        {incident.type === 'UNAUTHORIZED_ACCESS' && (
-                          <span className="text-orange-400">🚪 Unauthorised Access</span>
-                        )}
-                        {incident.type === 'FACE_RECOGNIZED' && (
-                          <span className="text-blue-400">👤 Face Recognised</span>
-                        )}
-                        {incident.type === 'SUSPICIOUS_BEHAVIOR' && (
-                          <span className="text-yellow-400">⚠️ Suspicious Behavior</span>
-                        )}
-                      </span>
-                      <div className="flex items-center text-xs text-gray-300 mb-1">
-                        <span className="mr-2">📹</span>
-                        <span className="truncate">{incident.camera.name}</span>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <span className="mr-2">🕐</span>
-                        <span className="font-mono">{new Date(incident.tsStart).toLocaleTimeString('en-GB', { hour12: false })} - {new Date(incident.tsEnd).toLocaleTimeString('en-GB', { hour12: false })} on {new Date(incident.tsStart).toLocaleDateString('en-GB')}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end mt-2">
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        onResolveIncident(incident.id);
-                      }}
-                      className="text-yellow-400 text-sm flex items-center font-medium hover:text-yellow-300 px-3 py-1 rounded bg-yellow-400/10 hover:bg-yellow-400/20"
-                    >
-                      Resolve <ChevronRight className="w-4 h-4 ml-1" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="flex justify-center items-center py-12 text-gray-400">Loading...</div>
+        ) : shown.length === 0 ? (
+          <div className="py-16 text-center text-gray-400">
+            {showResolved ? 'No resolved incidents.' : 'No unresolved incidents.'}
           </div>
+        ) : (
+          shown.map(incident => (
+            <div
+              key={incident.id}
+              className={`flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-all border 
+                ${selectedIncident?.id === incident.id 
+                  ? 'bg-[#20242c] border-[#37e3a1] shadow-lg' 
+                  : 'bg-[#191E24] border-transparent hover:border-[#333945]'
+                }
+                ${incident.resolved ? 'opacity-60' : ''}
+              `}
+              onClick={() => onIncidentSelect(incident)}
+            >
+              <img
+                src={incident.thumbnailUrl}
+                alt={incident.type}
+                className="w-16 h-12 object-cover rounded bg-gray-700 border border-[#232834]"
+              />
+              <div className="flex flex-col flex-1 min-w-0 gap-1">
+                <span className={`text-xs font-bold tracking-wide uppercase 
+                  ${incident.type === 'GUN_THREAT' ? 'text-red-400'
+                    : incident.type === 'UNAUTHORIZED_ACCESS' ? 'text-orange-400'
+                    : incident.type === 'FACE_RECOGNIZED' ? 'text-blue-400'
+                    : incident.type === 'SUSPICIOUS_BEHAVIOR' ? 'text-yellow-400'
+                    : 'text-gray-300'
+                  }`
+                }>
+                  {incident.type === 'GUN_THREAT'
+                    ? "Gun Threat"
+                    : incident.type === 'UNAUTHORIZED_ACCESS'
+                    ? "Unauthorised Access"
+                    : incident.type === 'FACE_RECOGNIZED'
+                    ? "Face Recognised"
+                    : incident.type === 'SUSPICIOUS_BEHAVIOR'
+                    ? "Suspicious Behavior"
+                    : incident.type}
+                </span>
+                <span className="text-xs text-gray-300 truncate">{incident.camera.name}</span>
+                <span className="text-xs font-mono text-gray-500">{incident.tsStart}</span>
+              </div>
+              {!incident.resolved && (
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    onResolveIncident(incident.id);
+                  }}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-[#222b36] text-green-400 font-bold text-xs rounded-lg shadow-sm border border-green-500 hover:bg-green-600 hover:text-white transition"
+                >
+                  <span>Resolve</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+              {incident.resolved && (
+                <span className="ml-2 text-xs text-green-400 font-medium">Resolved</span>
+              )}
+            </div>
+          ))
         )}
       </div>
     </div>
