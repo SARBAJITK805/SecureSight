@@ -37,6 +37,7 @@ export default function Dashboard() {
     const response = await fetch('/api/incidents');
     const data = await response.json();
     setIncidents(data.incidents);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setSelectedIncident(data.incidents.find((i: { resolved: any; }) => !i.resolved) || data.incidents[0]);
     setLoading(false);
   };
